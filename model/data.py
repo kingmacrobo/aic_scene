@@ -56,7 +56,7 @@ class DataGenerator():
             for i in xrange(batch_size):
                 sample = self.train_samples[index % self.train_count]
                 image = self.load_image_from_file(os.path.join(self.train_image_dir, sample['image_id']))
-                label = sample['label_id']
+                label = int(sample['label_id'])
                 batch_x.append(image)
                 batch_y.append(label)
 
@@ -78,7 +78,7 @@ class DataGenerator():
             for i in xrange(batch_size):
                 sample = self.validate_samples[index]
                 image = self.load_image_from_file(os.path.join(self.validate_image_dir, sample['image_id']))
-                label = sample['label_id']
+                label = int(sample['label_id'])
                 batch_x.append(image)
                 batch_y.append(label)
 

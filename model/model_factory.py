@@ -52,8 +52,8 @@ class ModelFactory():
 
         # evaluate net
         tf.get_variable_scope().reuse_variables()
-        eval_x = tf.placeholder(tf.float32, [self.batch_size, self.input_size, self.input_size, 3])
-        eval_net, _ = self.net(x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob, is_training=False)
+        eval_x = tf.placeholder(tf.float32, [None, self.input_size, self.input_size, 3])
+        eval_net, _ = self.net(eval_x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob, is_training=False)
         _, top_3 = tf.nn.top_k(eval_net, k=3)
 
         session.run(tf.global_variables_initializer())
@@ -89,7 +89,7 @@ class ModelFactory():
             total_loss += loss_out
             count += 1
 
-            if step % 10 == 0:
+            if step % 50 == 0:
                 avg_loss = total_loss/count
                 print 'global step {}, epoch {}, step {}, loss {}, generate data time: {:.2f} s, step train time: {:.2f} s'\
                     .format(step, step / 53879, step % 53879, avg_loss, gd_b - gd_a, tr_b - tr_a)
@@ -97,7 +97,7 @@ class ModelFactory():
                 total_loss = 0
                 count = 0
 
-            if step != 0 and step % 500 == 0:
+            if step != 0 and step % 1000 == 0:
                 model_path = saver.save(session, os.path.join(self.model_dir, self.net_name))
                 if os.path.exists(self.acc_file):
                     j_dict = json.load(open(self.acc_file))
@@ -108,7 +108,7 @@ class ModelFactory():
                 json.dump(j_dict, open(self.acc_file, 'w'), indent=4)
                 print 'Save model at {}'.format(model_path)
 
-            if step != 0 and step % 100 == 0:
+            if step != 0 and step % 5000 == 0:
                 print 'Evaluate validate set ... '
                 ee_a = time.time()
                 correct = 0
@@ -118,7 +118,7 @@ class ModelFactory():
                     batches += 1
                 validate_samples = self.datagen.generate_validate_samples(self.batch_size)
                 for i in xrange(batches):
-                    val_x, val_y, sample_name = validate_samples.next()
+                    val_x, val_y = validate_samples.next()
 
                     val_top_3 = session.run(top_3, feed_dict={eval_x: val_x})
 
