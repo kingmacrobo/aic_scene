@@ -5,7 +5,7 @@ import os
 
 class DataGenerator():
 
-    def __init__(self, train_json_file, train_image_dir, validate_json_file, validate_image_dir, test_json_file=None, test_image_dir=None, input_size=244):
+    def __init__(self, train_json_file, train_image_dir, validate_json_file, validate_image_dir, test_json_file=None, test_image_dir=None, input_size=224):
 
         print 'Loading train and validate samples...'
         self.train_samples = self.load_samples(train_json_file)
@@ -27,7 +27,7 @@ class DataGenerator():
 
     def load_samples(self, json_file):
         samples = []
-        j_f = json.load(json_file)
+        j_f = json.load(open(json_file))
         for sample in j_f:
             samples.append({
                 'image_id': sample['image_id'],
@@ -37,7 +37,7 @@ class DataGenerator():
 
     def load_image_samples(self, json_file):
         samples = []
-        j_f = json.load(json_file)
+        j_f = json.load(open(json_file))
         for sample in j_f:
             samples.append(sample['image_id'])
         return samples
