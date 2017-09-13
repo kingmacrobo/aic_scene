@@ -41,7 +41,7 @@ class ModelFactory():
         global_step = tf.Variable(0, name='global_step', trainable=False)
 
         learning_rate = tf.train.exponential_decay(self.lr, global_step,
-                                                   5000, 0.95, staircase=True)
+                                                   30000, 0.95, staircase=True)
 
         train_step = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(
             loss,
@@ -92,7 +92,7 @@ class ModelFactory():
             if step % 10 == 0:
                 avg_loss = total_loss/count
                 print 'global step {}, epoch {}, step {}, loss {}, generate data time: {:.2f} s, step train time: {:.2f} s'\
-                    .format(step, step / 4493, step % 4493, avg_loss, gd_b - gd_a, tr_b - tr_a)
+                    .format(step, step / 53879, step % 53879, avg_loss, gd_b - gd_a, tr_b - tr_a)
                 self.loss_log.write('{} {}\n'.format(step, avg_loss))
                 total_loss = 0
                 count = 0
@@ -108,7 +108,7 @@ class ModelFactory():
                 json.dump(j_dict, open(self.acc_file, 'w'), indent=4)
                 print 'Save model at {}'.format(model_path)
 
-            if step != 0 and step % 5000 == 0:
+            if step != 0 and step % 100 == 0:
                 print 'Evaluate validate set ... '
                 ee_a = time.time()
                 correct = 0
