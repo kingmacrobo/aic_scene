@@ -39,6 +39,14 @@ class ModelFactory():
         with slim.arg_scope(vgg.vgg_arg_scope()):
             train_net, _ = self.net(x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob)
 
+        # load vgg pre-trained parameters on ImageNet
+        init_fn=None
+        if self.fine_tune and not os.path.exists(self.model_dir):
+            if self.pretrained_path and os.path.exists(self.pretrained_path):
+                print 'Load pretrained model from {}'.format(self.pretrained_path)
+                variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=['vgg_16/fc8'])
+                init_fn = tf.contrib.framework.assign_from_checkpoint_fn(self.pretrained_path, variables_to_restore)
+
         # softmax cross entropy loss
         loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y, logits=train_net))
 
@@ -61,39 +69,28 @@ class ModelFactory():
             eval_net, _ = self.net(eval_x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob, is_training=False)
         _, top_3 = tf.nn.top_k(eval_net, k=3)
 
-        # load vgg pre-trained parameters on ImageNet
-        init_fn=None
-        fc8_init=None
-        if self.fine_tune and not os.path.exists(self.model_dir):
-            if self.pretrained_path and os.path.exists(self.pretrained_path):
-                print 'Load pretrained model from {}'.format(self.pretrained_path)
-                variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=['vgg_16/fc8'])
-                init_fn = tf.contrib.framework.assign_from_checkpoint_fn(self.pretrained_path, variables_to_restore)
-                # init fc8 layer parameters
-                fc8_variables = tf.contrib.framework.get_variables('vgg_16/fc8')
-                fc8_init = tf.variables_initializer(fc8_variables)
-
         if init_fn is not None:
             init_fn(session)
-            session.run(fc8_init)
-
+            uninit_names = session.run(tf.report_uninitialized_variables())
+            for v in uninit_names:
+                vi = tf.contrib.framework.get_variables(v)
+                session.run(tf.variables_initializer(vi))
         else:
             session.run(tf.global_variables_initializer())
 
         # restore the model
         last_step = -1
         last_acc = 0
-        if not os.path.exists(self.model_dir):
-            os.mkdir(self.model_dir)
-        ckpt = tf.train.get_checkpoint_state(self.model_dir)
-        if ckpt and ckpt.model_checkpoint_path:
-            saver.restore(session, ckpt.model_checkpoint_path)
-            if os.path.exists(self.acc_file):
-                acc_json = json.load(open(self.acc_file, 'r'))
-                last_acc = acc_json['accuracy']
-                last_step = acc_json['step']
-            print 'Model restored from {}, last accuracy: {}, last step: {}'\
-                .format(ckpt.model_checkpoint_path, last_acc, last_step)
+        if os.path.exists(self.model_dir):
+            ckpt = tf.train.get_checkpoint_state(self.model_dir)
+            if ckpt and ckpt.model_checkpoint_path:
+                saver.restore(session, ckpt.model_checkpoint_path)
+                if os.path.exists(self.acc_file):
+                    acc_json = json.load(open(self.acc_file, 'r'))
+                    last_acc = acc_json['accuracy']
+                    last_step = acc_json['step']
+                print 'Model restored from {}, last accuracy: {}, last step: {}'\
+                    .format(ckpt.model_checkpoint_path, last_acc, last_step)
 
 
         generate_train_batch = self.datagen.generate_batch_train_samples(batch_size=self.batch_size)
@@ -120,6 +117,8 @@ class ModelFactory():
                 count = 0
 
             if step != 0 and step % 1000 == 0:
+                if not os.path.exists(self.model_dir):
+                    os.mkdir(self.model_dir)
                 model_path = saver.save(session, os.path.join(self.model_dir, self.net_name))
                 if os.path.exists(self.acc_file):
                     j_dict = json.load(open(self.acc_file))
@@ -159,6 +158,8 @@ class ModelFactory():
                 # save model if get higher accuracy
                 if top_3_acc > last_acc:
                     last_acc = top_3_acc
+                    if not os.path.exists(self.model_dir):
+                        os.mkdir(self.model_dir)
                     model_path = saver.save(session, os.path.join(self.model_dir, self.net_name + '_best'))
                     acc_json = {'accuracy': last_acc, 'step': step}
                     with open(self.acc_file, 'w') as f:
