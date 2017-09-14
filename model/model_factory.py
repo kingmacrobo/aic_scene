@@ -11,7 +11,7 @@ net_dict = {
 num_class = 80
 
 class ModelFactory():
-    def __init__(self, datagen, net='VGG16', batch_size=32, lr=0.001, dropout_keep_prob=0.5, model_dir='checkpoints', input_size=224):
+    def __init__(self, datagen, net='VGG16', batch_size=64, lr=0.0001, dropout_keep_prob=0.5, model_dir='checkpoints', input_size=224):
 
         self.datagen = datagen
         self.batch_size = batch_size
