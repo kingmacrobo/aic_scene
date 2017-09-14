@@ -12,13 +12,15 @@ num_class = 80
 slim = tf.contrib.slim
 
 class ModelFactory():
-    def __init__(self, datagen, net='VGG16', batch_size=64, lr=0.001, dropout_keep_prob=0.5, model_dir='checkpoints', input_size=224):
+    def __init__(self, datagen, net='VGG16', batch_size=64, lr=0.001, dropout_keep_prob=0.5, model_dir='checkpoints', input_size=224, fine_tune=False, pretrained_path=None):
 
         self.datagen = datagen
         self.batch_size = batch_size
         self.lr = lr
         self.dropout_keep_prob = dropout_keep_prob
         self.model_dir = model_dir
+        self.fine_tune = fine_tune
+        self.pretrained_path = pretrained_path
         self.acc_file = os.path.join(self.model_dir, 'accuracy.json')
         self.loss_log = open('loss_log', 'w')
         self.acc_log = open('acc_log', 'w')
@@ -27,7 +29,7 @@ class ModelFactory():
         self.net = net_dict[net]
         self.input_size = input_size
 
-        print 'batch size: {}, learning reate: {}, dropout keep probability: {}\n'.format(self.batch_size, self.lr, self.dropout_keep_prob)
+        print 'Fine-tune model: {}, batch size: {}, learning reate: {}, dropout keep probability: {}\n'.format(self.fine_tune, self.batch_size, self.lr, self.dropout_keep_prob)
 
 
     def train(self, session):
@@ -59,7 +61,24 @@ class ModelFactory():
             eval_net, _ = self.net(eval_x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob, is_training=False)
         _, top_3 = tf.nn.top_k(eval_net, k=3)
 
-        session.run(tf.global_variables_initializer())
+        # load vgg pre-trained parameters on ImageNet
+        init_fn=None
+        fc8_init=None
+        if self.fine_tune and not os.path.exists(self.model_dir):
+            if self.pretrained_path and os.path.exists(self.pretrained_path):
+                print 'Load pretrained model from {}'.format(self.pretrained_path)
+                variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=['vgg_16/fc8'])
+                init_fn = tf.contrib.framework.assign_from_checkpoint_fn(self.pretrained_path, variables_to_restore)
+                # init fc8 layer parameters
+                fc8_variables = tf.contrib.framework.get_variables('vgg_16/fc8')
+                fc8_init = tf.variables_initializer(fc8_variables)
+
+        if init_fn is not None:
+            init_fn(session)
+            session.run(fc8_init)
+
+        else:
+            session.run(tf.global_variables_initializer())
 
         # restore the model
         last_step = -1
