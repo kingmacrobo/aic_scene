@@ -1,5 +1,6 @@
 data/
 .idea/
+pre_trained/
 *.pyc
 *log
 checkpoints
