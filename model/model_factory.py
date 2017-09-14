@@ -9,6 +9,7 @@ net_dict = {
 }
 
 num_class = 80
+slim = tf.contrib.slim
 
 class ModelFactory():
     def __init__(self, datagen, net='VGG16', batch_size=64, lr=0.0001, dropout_keep_prob=0.5, model_dir='checkpoints', input_size=224):
@@ -33,7 +34,8 @@ class ModelFactory():
         # train net
         x = tf.placeholder(tf.float32, [self.batch_size, self.input_size, self.input_size, 3])
         y = tf.placeholder(tf.int32, [self.batch_size])
-        train_net, _ = self.net(x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob)
+        with slim.arg_scope(vgg.vgg_arg_scope()):
+            train_net, _ = self.net(x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob)
 
         # softmax cross entropy loss
         loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y, logits=train_net))
@@ -53,7 +55,8 @@ class ModelFactory():
         # evaluate net
         tf.get_variable_scope().reuse_variables()
         eval_x = tf.placeholder(tf.float32, [None, self.input_size, self.input_size, 3])
-        eval_net, _ = self.net(eval_x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob, is_training=False)
+        with slim.arg_scope(vgg.vgg_arg_scope()):
+            eval_net, _ = self.net(eval_x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob, is_training=False)
         _, top_3 = tf.nn.top_k(eval_net, k=3)
 
         session.run(tf.global_variables_initializer())
