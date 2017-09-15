@@ -42,9 +42,10 @@ class DataGenerator():
             samples.append(sample['image_id'])
         return samples
 
-    def load_image_from_file(self, img_path):
+    def load_image_from_file(self, img_path, resize=False):
         img = cv2.imread(img_path)
-        img = cv2.resize(img, (self.input_size, self.input_size), interpolation=cv2.INTER_AREA)
+        if resize:
+            img = cv2.resize(img, (self.input_size, self.input_size), interpolation=cv2.INTER_AREA)
         img = img / 255.0
         return img
 
