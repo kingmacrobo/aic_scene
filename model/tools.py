@@ -5,8 +5,10 @@ def resize_images(width, height, image_list, out_dir):
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
 
-    print 'resize {} samples...'.format(len(image_list))
-    for i, img_path in enumerate(image_list):
+    images = open(image_list).readlines()
+
+    print 'resize {} samples...'.format(len(images))
+    for i, img_path in enumerate(images):
         print '[{}] {}'.format(i, img_path)
         img_path = img_path.strip()
         img_id = img_path.split('/')[-1]

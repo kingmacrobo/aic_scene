@@ -2,10 +2,11 @@ import cv2
 import numpy as np
 import json
 import os
+import random as rd
 
 class DataGenerator():
 
-    def __init__(self, train_json_file, train_image_dir, validate_json_file, validate_image_dir, test_json_file=None, test_image_dir=None, input_size=224):
+    def __init__(self, train_json_file, train_image_dir, validate_json_file, validate_image_dir, test_json_file=None, test_image_dir=None, input_size=224, data_augmentation=True):
 
         print 'Loading train and validate samples...'
         self.train_samples = self.load_samples(train_json_file)
@@ -16,6 +17,7 @@ class DataGenerator():
 
         self.train_count = len(self.train_samples)
         self.validate_count = len(self.validate_samples)
+        self.data_augmentation = data_augmentation
 
         if test_json_file:
             self.test_samples = self.load_image_samples(test_json_file)
@@ -51,20 +53,23 @@ class DataGenerator():
 
     def generate_batch_train_samples(self, batch_size=32):
         index = 0
+        batch_x = np.zeros((batch_size, self.input_size, self.input_size, 3))
+        batch_y = np.zeros(batch_size)
         while True:
-            batch_x = []
-            batch_y = []
+            nt = 0
             for i in xrange(batch_size):
-                sample = self.train_samples[index % self.train_count]
+                sample = self.train_samples[index]
                 image = self.load_image_from_file(os.path.join(self.train_image_dir, sample['image_id']))
+
+                if self.data_augmentation:
+                    image = self.image_aug(image)
+
                 label = int(sample['label_id'])
-                batch_x.append(image)
-                batch_y.append(label)
+                batch_x[i] = image
+                batch_y[i] = label
 
                 index += 1
-
-            batch_x = np.asarray(batch_x)
-            batch_y = np.asarray(batch_y)
+                index = index % self.train_count
 
             yield batch_x, batch_y
 
@@ -112,3 +117,17 @@ class DataGenerator():
             batch_x = np.asarray(batch_x)
 
             yield batch_x
+
+    def image_aug(self, image):
+        # horizental flip
+        flip = rd.randint(0, 1)
+        if flip == 1:
+            image = cv2.flip(image, 1)
+        # brightless
+        bright = rd.randint(0, 1)
+        if bright == 1:
+            scale = rd.uniform(0.8, 1.2)
+            image = image * scale
+
+        return image
+

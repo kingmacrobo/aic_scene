@@ -2,6 +2,7 @@ import tensorflow as tf
 import os
 import json
 import time
+import numpy as np
 from nets import vgg
 
 net_dict = {
@@ -12,7 +13,7 @@ num_class = 80
 slim = tf.contrib.slim
 
 class ModelFactory():
-    def __init__(self, datagen, net='VGG16', batch_size=64, lr=0.0001, dropout_keep_prob=0.5, model_dir='checkpoints', input_size=224, fine_tune=False, pretrained_path=None):
+    def __init__(self, datagen, net='VGG16', batch_size=64, lr=0.00001, dropout_keep_prob=0.5, model_dir='checkpoints', input_size=224, fine_tune=False, pretrained_path=None):
 
         self.datagen = datagen
         self.batch_size = batch_size
@@ -68,6 +69,7 @@ class ModelFactory():
         with slim.arg_scope(vgg.vgg_arg_scope()):
             eval_net, _ = self.net(eval_x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob, is_training=False)
         _, top_3 = tf.nn.top_k(eval_net, k=3)
+        top_1 = tf.argmax(eval_net, axis=1)
 
         if init_fn is not None:
             init_fn(session)
@@ -133,6 +135,7 @@ class ModelFactory():
                 print 'Evaluate validate set ... '
                 ee_a = time.time()
                 correct = 0
+                top_1_correct = 0
                 N = self.datagen.get_validate_sample_count()
                 batches = N / self.batch_size
                 if N % self.batch_size != 0:
@@ -141,17 +144,22 @@ class ModelFactory():
                 for i in xrange(batches):
                     val_x, val_y = validate_samples.next()
 
-                    val_top_3 = session.run(top_3, feed_dict={eval_x: val_x})
+                    val_top_3, val_top_1 = session.run([top_3, top_1], feed_dict={eval_x: val_x})
 
                     for j, row in enumerate(val_top_3):
                         if val_y[j] in row:
                             correct += 1
 
+                    for j, cla in enumerate(val_top_1):
+                        if val_y[j] == val_top_1[j]:
+                            top_1_correct += 1
+
                 ee_b = time.time()
                 top_3_acc = correct * 1.0 / N
+                top_1_acc = top_1_correct * 1.0 / N
 
-                print 'validate accuracy: {:.5f}, time: {:.2f} s' \
-                    .format(top_3_acc, ee_b - ee_a)
+                print 'validate top-3 acc: {:.5f}, top-1 acc: {},time: {:.2f} s' \
+                    .format(top_3_acc, top_1_acc, ee_b - ee_a)
 
                 self.acc_log.write('{} {}\n'.format(step, top_3_acc))
 
