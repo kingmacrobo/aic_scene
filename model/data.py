@@ -44,10 +44,8 @@ class DataGenerator():
             samples.append(sample['image_id'])
         return samples
 
-    def load_image_from_file(self, img_path, resize=False):
+    def load_image_from_file(self, img_path):
         img = cv2.imread(img_path)
-        if resize:
-            img = cv2.resize(img, (self.input_size, self.input_size), interpolation=cv2.INTER_AREA)
         img = img / 255.0
         return img
 
@@ -71,7 +69,7 @@ class DataGenerator():
                 index += 1
                 index = index % self.train_count
 
-            yield batch_x, batch_y
+            yield batch_x.copy(), batch_y.copy()
 
     def get_validate_sample_count(self):
         return self.validate_count
@@ -119,6 +117,13 @@ class DataGenerator():
             yield batch_x
 
     def image_aug(self, image):
+        crop = rd.randint(0, 1)
+        if crop == 1:
+            image = cv2.resize(image, (256, 256), interpolation=cv2.INTER_AREA)
+            image = self.random_crop(image, self.input_size, self.input_size)
+        else:
+            image = cv2.resize(image, (self.input_size, self.input_size), interpolation=cv2.INTER_AREA)
+
         # horizental flip
         flip = rd.randint(0, 1)
         if flip == 1:
@@ -130,4 +135,14 @@ class DataGenerator():
             image = image * scale
 
         return image
+
+    def random_crop(self, img, w, h):
+        h_total = img.shape[0]
+        w_total = img.shape[1]
+
+        left = rd.randint(0, w_total - w)
+        right = left + w
+        top = rd.randint(0, h_total - h)
+        bot = top + h
+        return img[top:bot, left:right, :].copy()
 
