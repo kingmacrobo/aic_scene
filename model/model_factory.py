@@ -54,7 +54,7 @@ class ModelFactory():
         global_step = tf.Variable(0, name='global_step', trainable=False)
 
         learning_rate = tf.train.exponential_decay(self.lr, global_step,
-                                                   30000, 0.95, staircase=True)
+                                                   10000, 0.95, staircase=True)
 
         train_step = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(
             loss,
@@ -68,6 +68,7 @@ class ModelFactory():
         eval_x = tf.placeholder(tf.float32, [None, self.input_size, self.input_size, 3])
         with slim.arg_scope(vgg.vgg_arg_scope()):
             eval_net, _ = self.net(eval_x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob, is_training=False)
+        eval_net = tf.nn.softmax(eval_net)
         _, top_3 = tf.nn.top_k(eval_net, k=3)
         top_1 = tf.argmax(eval_net, axis=1)
 
