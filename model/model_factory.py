@@ -95,6 +95,8 @@ class ModelFactory():
                     .format(ckpt.model_checkpoint_path, last_acc, last_step)
 
 
+        tf.get_default_graph().finalize()
+
         generate_train_batch = self.datagen.generate_batch_train_samples(batch_size=self.batch_size)
         total_loss = 0
         count = 0
@@ -104,7 +106,7 @@ class ModelFactory():
             gd_b = time.time()
 
             tr_a = time.time()
-            _, loss_out = session.run([train_step, loss], feed_dict={x: batch_x, y: batch_y})
+            _, loss_out, c_lr = session.run([train_step, loss, learning_rate], feed_dict={x: batch_x, y: batch_y})
             tr_b = time.time()
 
             total_loss += loss_out
@@ -112,8 +114,8 @@ class ModelFactory():
 
             if step % 50 == 0:
                 avg_loss = total_loss/count
-                print 'global step {}, epoch {}, step {}, loss {}, generate data time: {:.2f} s, step train time: {:.2f} s'\
-                    .format(step, step / (53879 / self.batch_size), step % (53879 / self.batch_size), avg_loss, gd_b - gd_a, tr_b - tr_a)
+                print 'global step {}, epoch {}, step {}, loss {}, generate data time: {:.2f} s, step train time: {:.2f} s, lr: {}'\
+                    .format(step, step / (53879 / self.batch_size), step % (53879 / self.batch_size), avg_loss, gd_b - gd_a, tr_b - tr_a, c_lr)
                 self.loss_log.write('{} {}\n'.format(step, avg_loss))
                 total_loss = 0
                 count = 0

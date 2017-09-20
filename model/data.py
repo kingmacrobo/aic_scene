@@ -54,7 +54,6 @@ class DataGenerator():
         batch_x = np.zeros((batch_size, self.input_size, self.input_size, 3))
         batch_y = np.zeros(batch_size)
         while True:
-            nt = 0
             for i in xrange(batch_size):
                 sample = self.train_samples[index]
                 image = self.load_image_from_file(os.path.join(self.train_image_dir, sample['image_id']))
@@ -69,7 +68,7 @@ class DataGenerator():
                 index += 1
                 index = index % self.train_count
 
-            yield batch_x.copy(), batch_y.copy()
+            yield batch_x, batch_y
 
     def get_validate_sample_count(self):
         return self.validate_count
@@ -119,10 +118,10 @@ class DataGenerator():
     def image_aug(self, image):
         crop = rd.randint(0, 1)
         if crop == 1:
-            image = cv2.resize(image, (256, 256), interpolation=cv2.INTER_AREA)
+            image = cv2.resize(image, (256, 256))
             image = self.random_crop(image, self.input_size, self.input_size)
         else:
-            image = cv2.resize(image, (self.input_size, self.input_size), interpolation=cv2.INTER_AREA)
+            image = cv2.resize(image, (self.input_size, self.input_size))
 
         # horizental flip
         flip = rd.randint(0, 1)
@@ -145,4 +144,18 @@ class DataGenerator():
         top = rd.randint(0, h_total - h)
         bot = top + h
         return img[top:bot, left:right, :].copy()
+
+    def resize_shorter(self, img, size):
+        h = img.shape[0]
+        w = img.shape[1]
+
+        if h > w:
+            r_w = size
+            r_h = h * r_w / w
+        else:
+            r_h = size
+            r_w = w * r_h / h
+
+        return cv2.resize(img, (r_w, r_h))
+
 
