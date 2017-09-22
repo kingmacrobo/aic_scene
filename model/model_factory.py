@@ -19,7 +19,7 @@ num_class = 80
 slim = tf.contrib.slim
 
 class ModelFactory():
-    def __init__(self, datagen, net='VGG16', batch_size=64, lr=0.00001, dropout_keep_prob=0.8, model_dir='checkpoints', input_size=299, fine_tune=False, pretrained_path=None):
+    def __init__(self, datagen, net='VGG16', batch_size=32, lr=0.001, dropout_keep_prob=0.8, model_dir='checkpoints', input_size=299, fine_tune=False, pretrained_path=None):
 
         self.datagen = datagen
         self.batch_size = batch_size
@@ -54,9 +54,10 @@ class ModelFactory():
                 if self.net_name == 'VGG16':
                     variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=['vgg_16/fc8'])
                 elif self.net_name == 'INCEPTION_RESNET_V2':
-                    variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=['InceptionResnetV2/Logits'])
+                    variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=['InceptionResnetV2/Logits', 'InceptionResnetV2/AuxLogits/Logits'])
 
                 init_fn = tf.contrib.framework.assign_from_checkpoint_fn(self.pretrained_path, variables_to_restore)
+                print 'Load pretrained parameters done!'
 
         # softmax cross entropy loss
         loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y, logits=train_net))
@@ -65,6 +66,16 @@ class ModelFactory():
 
         learning_rate = tf.train.exponential_decay(self.lr, global_step,
                                                    20000, 0.95, staircase=True)
+
+        '''
+        train_step = tf.train.MomentumOptimizer(
+            learning_rate,
+            momentum=0.9,
+            name='Momentum').minimize(
+                loss,
+                global_step = global_step
+            )
+        '''
 
         train_step = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(
             loss,
@@ -85,14 +96,20 @@ class ModelFactory():
         _, top_3 = tf.nn.top_k(eval_net, k=3)
         top_1 = tf.argmax(eval_net, axis=1)
 
+        print 'Initialize uninitialized variables...'
         if init_fn is not None:
             init_fn(session)
             uninit_names = session.run(tf.report_uninitialized_variables())
+            print 'Uninitialized variable count: {}'.format(len(uninit_names))
+            vis = []
             for v in uninit_names:
+                #print 'Initialize {}'.format(v)
                 vi = tf.contrib.framework.get_variables(v)
-                session.run(tf.variables_initializer(vi))
+                vis.append(vi[0])
+            session.run(tf.variables_initializer(vis))
         else:
             session.run(tf.global_variables_initializer())
+        print 'Initialize variables done!'
 
         # restore the model
         last_step = -1
@@ -114,6 +131,8 @@ class ModelFactory():
         generate_train_batch = self.datagen.generate_batch_train_samples(batch_size=self.batch_size)
         total_loss = 0
         count = 0
+
+        print 'Start training...'
         for step in xrange(last_step + 1, 100000000):
             gd_a = time.time()
             batch_x, batch_y = generate_train_batch.next()
@@ -126,7 +145,7 @@ class ModelFactory():
             total_loss += loss_out
             count += 1
 
-            if step % 50 == 0:
+            if step % 20 == 0:
                 avg_loss = total_loss/count
                 print 'global step {}, epoch {}, step {}, loss {}, generate data time: {:.2f} s, step train time: {:.2f} s, lr: {}'\
                     .format(step, step / (53879 / self.batch_size), step % (53879 / self.batch_size), avg_loss, gd_b - gd_a, tr_b - tr_a, c_lr)
