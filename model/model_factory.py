@@ -13,7 +13,7 @@ num_class = 80
 slim = tf.contrib.slim
 
 class ModelFactory():
-    def __init__(self, datagen, net='VGG16', batch_size=64, lr=0.00001, dropout_keep_prob=0.5, model_dir='checkpoints', input_size=224, fine_tune=False, pretrained_path=None):
+    def __init__(self, datagen, net='VGG16', batch_size=64, lr=0.0001, dropout_keep_prob=0.5, model_dir='checkpoints', input_size=224, fine_tune=False, pretrained_path=None):
 
         self.datagen = datagen
         self.batch_size = batch_size
