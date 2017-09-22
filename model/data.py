@@ -6,7 +6,7 @@ import random as rd
 
 class DataGenerator():
 
-    def __init__(self, train_json_file, train_image_dir, validate_json_file, validate_image_dir, test_json_file=None, test_image_dir=None, input_size=224, data_augmentation=True):
+    def __init__(self, train_json_file, train_image_dir, validate_json_file, validate_image_dir, test_json_file=None, test_image_dir=None, input_size=299, data_augmentation=True):
 
         print 'Loading train and validate samples...'
         self.train_samples = self.load_samples(train_json_file)
@@ -81,6 +81,7 @@ class DataGenerator():
             for i in xrange(batch_size):
                 sample = self.validate_samples[index]
                 image = self.load_image_from_file(os.path.join(self.validate_image_dir, sample['image_id']))
+                image = cv2.resize(image, (self.input_size, self.input_size))
                 label = int(sample['label_id'])
                 batch_x.append(image)
                 batch_y.append(label)
@@ -118,7 +119,8 @@ class DataGenerator():
     def image_aug(self, image):
         crop = rd.randint(0, 1)
         if crop == 1:
-            image = cv2.resize(image, (256, 256))
+            crop_size = rd.randint(310, 350)
+            image = cv2.resize(image, (crop_size, crop_size))
             image = self.random_crop(image, self.input_size, self.input_size)
         else:
             image = cv2.resize(image, (self.input_size, self.input_size))

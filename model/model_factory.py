@@ -3,17 +3,23 @@ import os
 import json
 import time
 import numpy as np
-from nets import vgg
+from nets import vgg, inception_resnet_v2
 
 net_dict = {
     'VGG16': vgg.vgg_16,
+    'INCEPTION_RESNET_V2': inception_resnet_v2.inception_resnet_v2,
+}
+
+arg_scope_dict = {
+    'VGG16': vgg.vgg_arg_scope,
+    'INCEPTION_RESNET_V2': inception_resnet_v2.inception_resnet_v2_arg_scope,
 }
 
 num_class = 80
 slim = tf.contrib.slim
 
 class ModelFactory():
-    def __init__(self, datagen, net='VGG16', batch_size=64, lr=0.00001, dropout_keep_prob=0.5, model_dir='checkpoints', input_size=224, fine_tune=False, pretrained_path=None):
+    def __init__(self, datagen, net='VGG16', batch_size=64, lr=0.00001, dropout_keep_prob=0.8, model_dir='checkpoints', input_size=299, fine_tune=False, pretrained_path=None):
 
         self.datagen = datagen
         self.batch_size = batch_size
@@ -37,7 +43,7 @@ class ModelFactory():
         # train net
         x = tf.placeholder(tf.float32, [self.batch_size, self.input_size, self.input_size, 3])
         y = tf.placeholder(tf.int32, [self.batch_size])
-        with slim.arg_scope(vgg.vgg_arg_scope()):
+        with slim.arg_scope(arg_scope_dict[self.net_name]()):
             train_net, _ = self.net(x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob)
 
         # load vgg pre-trained parameters on ImageNet
@@ -45,7 +51,11 @@ class ModelFactory():
         if self.fine_tune and not os.path.exists(self.model_dir):
             if self.pretrained_path and os.path.exists(self.pretrained_path):
                 print 'Load pretrained model from {}'.format(self.pretrained_path)
-                variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=['vgg_16/fc8'])
+                if self.net_name == 'VGG16':
+                    variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=['vgg_16/fc8'])
+                elif self.net_name == 'INCEPTION_RESNET_V2':
+                    variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=['InceptionResnetV2/Logits'])
+
                 init_fn = tf.contrib.framework.assign_from_checkpoint_fn(self.pretrained_path, variables_to_restore)
 
         # softmax cross entropy loss
@@ -54,7 +64,7 @@ class ModelFactory():
         global_step = tf.Variable(0, name='global_step', trainable=False)
 
         learning_rate = tf.train.exponential_decay(self.lr, global_step,
-                                                   30000, 0.95, staircase=True)
+                                                   20000, 0.95, staircase=True)
 
         train_step = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(
             loss,
@@ -64,10 +74,14 @@ class ModelFactory():
         saver = tf.train.Saver(max_to_keep=3)
 
         # evaluate net
-        tf.get_variable_scope().reuse_variables()
+        if self.net_name == 'VGG16':
+            tf.get_variable_scope().reuse_variables()
+
         eval_x = tf.placeholder(tf.float32, [None, self.input_size, self.input_size, 3])
-        with slim.arg_scope(vgg.vgg_arg_scope()):
-            eval_net, _ = self.net(eval_x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob, is_training=False)
+        with slim.arg_scope(arg_scope_dict[self.net_name]()):
+            eval_net, _ = self.net(eval_x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob, is_training=False, reuse=True)
+
+        eval_net = tf.nn.softmax(eval_net)
         _, top_3 = tf.nn.top_k(eval_net, k=3)
         top_1 = tf.argmax(eval_net, axis=1)
 
