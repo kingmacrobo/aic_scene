@@ -19,7 +19,7 @@ num_class = 80
 slim = tf.contrib.slim
 
 class ModelFactory():
-    def __init__(self, datagen, net='VGG16', batch_size=32, lr=0.001, dropout_keep_prob=0.8, model_dir='checkpoints', input_size=299, fine_tune=False, pretrained_path=None):
+    def __init__(self, datagen, net='VGG16', batch_size=32, lr=0.000001, dropout_keep_prob=0.8, model_dir='checkpoints', input_size=299, fine_tune=False, pretrained_path=None):
 
         self.datagen = datagen
         self.batch_size = batch_size
@@ -44,7 +44,7 @@ class ModelFactory():
         x = tf.placeholder(tf.float32, [self.batch_size, self.input_size, self.input_size, 3])
         y = tf.placeholder(tf.int32, [self.batch_size])
         with slim.arg_scope(arg_scope_dict[self.net_name]()):
-            train_net, _ = self.net(x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob)
+            train_net, _ = self.net(x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob, reuse=None)
 
         # load vgg pre-trained parameters on ImageNet
         init_fn=None
@@ -67,7 +67,6 @@ class ModelFactory():
         learning_rate = tf.train.exponential_decay(self.lr, global_step,
                                                    20000, 0.95, staircase=True)
 
-        '''
         train_step = tf.train.MomentumOptimizer(
             learning_rate,
             momentum=0.9,
@@ -75,14 +74,18 @@ class ModelFactory():
                 loss,
                 global_step = global_step
             )
+
         '''
+        last_layer = tf.contrib.framework.get_variables('InceptionResnetV2/Logits')
 
         train_step = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(
             loss,
-            global_step=global_step
+            global_step=global_step)
+            var_list=last_layer
         )
+        '''
 
-        saver = tf.train.Saver(max_to_keep=3)
+        saver = tf.train.Saver([v for v in tf.trainable_variables() if not ('Adam' in v.name)], max_to_keep=3)
 
         # evaluate net
         if self.net_name == 'VGG16':
@@ -145,7 +148,7 @@ class ModelFactory():
             total_loss += loss_out
             count += 1
 
-            if step % 20 == 0:
+            if step % 50 == 0:
                 avg_loss = total_loss/count
                 print 'global step {}, epoch {}, step {}, loss {}, generate data time: {:.2f} s, step train time: {:.2f} s, lr: {}'\
                     .format(step, step / (53879 / self.batch_size), step % (53879 / self.batch_size), avg_loss, gd_b - gd_a, tr_b - tr_a, c_lr)
