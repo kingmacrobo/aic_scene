@@ -65,10 +65,13 @@ class ModelFactory():
         global_step = tf.Variable(0, name='global_step', trainable=False)
 
         learning_rate = tf.train.exponential_decay(self.lr, global_step,
-                                                   20000, 0.95, staircase=True)
+                                                   50000, 0.95, staircase=True)
+
+        #last_layer = tf.contrib.framework.get_variables('InceptionResnetV2/Logits')
+        #last_second = tf.contrib.framework.get_variables('InceptionResnetV2/Conv2d_7b_1x1')
 
         train_step = tf.train.MomentumOptimizer(
-            learning_rate,
+            learning_rate=learning_rate,
             momentum=0.9,
             name='Momentum').minimize(
                 loss,
@@ -76,16 +79,15 @@ class ModelFactory():
             )
 
         '''
-        last_layer = tf.contrib.framework.get_variables('InceptionResnetV2/Logits')
-
         train_step = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(
             loss,
             global_step=global_step)
-            var_list=last_layer
+            var_list=[last_layer[0], last_second[0]]
         )
         '''
 
-        saver = tf.train.Saver([v for v in tf.trainable_variables() if not ('Adam' in v.name)], max_to_keep=3)
+        saver = tf.train.Saver([v for v in tf.trainable_variables() if not ('Momentum' in v.name)], max_to_keep=3)
+        #saver = tf.train.Saver(max_to_keep=3)
 
         # evaluate net
         if self.net_name == 'VGG16':
@@ -148,7 +150,7 @@ class ModelFactory():
             total_loss += loss_out
             count += 1
 
-            if step % 50 == 0:
+            if step % 100 == 0:
                 avg_loss = total_loss/count
                 print 'global step {}, epoch {}, step {}, loss {}, generate data time: {:.2f} s, step train time: {:.2f} s, lr: {}'\
                     .format(step, step / (53879 / self.batch_size), step % (53879 / self.batch_size), avg_loss, gd_b - gd_a, tr_b - tr_a, c_lr)

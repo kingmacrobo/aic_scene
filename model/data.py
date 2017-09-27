@@ -119,7 +119,7 @@ class DataGenerator():
     def image_aug(self, image):
         crop = rd.randint(0, 1)
         if crop == 1:
-            crop_size = rd.randint(310, 350)
+            crop_size = rd.randint(300, 320)
             image = cv2.resize(image, (crop_size, crop_size))
             image = self.random_crop(image, self.input_size, self.input_size)
         else:
