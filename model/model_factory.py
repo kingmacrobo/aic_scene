@@ -3,23 +3,25 @@ import os
 import json
 import time
 import numpy as np
-from nets import vgg, inception_resnet_v2
+from nets import vgg, inception_resnet_v2, inception_v3
 
 net_dict = {
     'VGG16': vgg.vgg_16,
     'INCEPTION_RESNET_V2': inception_resnet_v2.inception_resnet_v2,
+    'INCEPTION_V3': inception_v3.inception_v3,
 }
 
 arg_scope_dict = {
     'VGG16': vgg.vgg_arg_scope,
     'INCEPTION_RESNET_V2': inception_resnet_v2.inception_resnet_v2_arg_scope,
+    'INCEPTION_V3': inception_v3.inception_v3_arg_scope,
 }
 
 num_class = 80
 slim = tf.contrib.slim
 
 class ModelFactory():
-    def __init__(self, datagen, net='VGG16', batch_size=32, lr=0.000001, dropout_keep_prob=0.8, model_dir='checkpoints', input_size=299, fine_tune=False, pretrained_path=None):
+    def __init__(self, datagen, net='VGG16', batch_size=32, lr=0.001, dropout_keep_prob=0.8, model_dir='checkpoints', input_size=299, fine_tune=False, pretrained_path=None):
 
         self.datagen = datagen
         self.batch_size = batch_size
@@ -43,8 +45,12 @@ class ModelFactory():
         # train net
         x = tf.placeholder(tf.float32, [self.batch_size, self.input_size, self.input_size, 3])
         y = tf.placeholder(tf.int32, [self.batch_size])
+        scaled_x = tf.scalar_mul((1.0 / 255), x)
+        scaled_x = tf.subtract(scaled_x, 0.5)
+        scaled_x = tf.multiply(scaled_x, 2.0)
+
         with slim.arg_scope(arg_scope_dict[self.net_name]()):
-            train_net, _ = self.net(x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob, reuse=None)
+            train_net, _ = self.net(scaled_x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob, reuse=None)
 
         # load vgg pre-trained parameters on ImageNet
         init_fn=None
@@ -55,6 +61,8 @@ class ModelFactory():
                     variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=['vgg_16/fc8'])
                 elif self.net_name == 'INCEPTION_RESNET_V2':
                     variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=['InceptionResnetV2/Logits', 'InceptionResnetV2/AuxLogits/Logits'])
+                elif self.net_name == 'INCEPTION_V3':
+                    variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=['InceptionV3/Logits/Conv2d_1c_1x1', 'InceptionV3/AuxLogits/Conv2d_2b_1x1'])
 
                 init_fn = tf.contrib.framework.assign_from_checkpoint_fn(self.pretrained_path, variables_to_restore)
                 print 'Load pretrained parameters done!'
@@ -65,11 +73,18 @@ class ModelFactory():
         global_step = tf.Variable(0, name='global_step', trainable=False)
 
         learning_rate = tf.train.exponential_decay(self.lr, global_step,
-                                                   50000, 0.95, staircase=True)
+                                                   10000, 0.95, staircase=True)
 
-        #last_layer = tf.contrib.framework.get_variables('InceptionResnetV2/Logits')
+        last_layer = tf.contrib.framework.get_variables('InceptionV3/Logits/Conv2d_1c_1x1')
         #last_second = tf.contrib.framework.get_variables('InceptionResnetV2/Conv2d_7b_1x1')
 
+        train_step = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).minimize(
+            loss,
+            global_step=global_step,
+            var_list=last_layer
+        )
+
+        '''
         train_step = tf.train.MomentumOptimizer(
             learning_rate=learning_rate,
             momentum=0.9,
@@ -77,6 +92,7 @@ class ModelFactory():
                 loss,
                 global_step = global_step
             )
+        '''
 
         '''
         train_step = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(
@@ -86,16 +102,20 @@ class ModelFactory():
         )
         '''
 
-        saver = tf.train.Saver([v for v in tf.trainable_variables() if not ('Momentum' in v.name)], max_to_keep=3)
-        #saver = tf.train.Saver(max_to_keep=3)
+        #saver = tf.train.Saver([v for v in tf.trainable_variables() if not ('Momentum' in v.name)], max_to_keep=3)
+        saver = tf.train.Saver(max_to_keep=3)
 
         # evaluate net
         if self.net_name == 'VGG16':
             tf.get_variable_scope().reuse_variables()
 
         eval_x = tf.placeholder(tf.float32, [None, self.input_size, self.input_size, 3])
+        eval_scaled_x = tf.scalar_mul((1.0/255), eval_x)
+        eval_scaled_x = tf.subtract(eval_scaled_x, 0.5)
+        eval_scaled_x = tf.multiply(eval_scaled_x, 2.0)
+
         with slim.arg_scope(arg_scope_dict[self.net_name]()):
-            eval_net, _ = self.net(eval_x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob, is_training=False, reuse=True)
+            eval_net, _ = self.net(eval_scaled_x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob, is_training=False, reuse=True)
 
         eval_net = tf.nn.softmax(eval_net)
         _, top_3 = tf.nn.top_k(eval_net, k=3)

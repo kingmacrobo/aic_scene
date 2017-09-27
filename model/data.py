@@ -46,7 +46,6 @@ class DataGenerator():
 
     def load_image_from_file(self, img_path):
         img = cv2.imread(img_path)
-        img = img / 255.0
         return img
 
     def generate_batch_train_samples(self, batch_size=32):
