@@ -240,19 +240,21 @@ class ModelFactory():
 
     def eval(self, session):
 
+
         eval_x = tf.placeholder(tf.float32, [None, self.input_size, self.input_size, 3])
         eval_scaled_x = tf.scalar_mul((1.0/255), eval_x)
         eval_scaled_x = tf.subtract(eval_scaled_x, 0.5)
         eval_scaled_x = tf.multiply(eval_scaled_x, 2.0)
 
         with slim.arg_scope(arg_scope_dict[self.net_name]()):
-            eval_net, _ = self.net(eval_scaled_x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob, is_training=False, reuse=False)
+            eval_net, _ = self.net(eval_scaled_x, num_classes=num_class, dropout_keep_prob=1, is_training=False, reuse=None)
 
         eval_net = tf.nn.softmax(eval_net)
         _, top_3 = tf.nn.top_k(eval_net, k=3)
         top_1 = tf.argmax(eval_net, axis=1)
 
-        saver = tf.train.Saver([v for v in tf.trainable_variables() if not ('Momentum' in v.name)], max_to_keep=3)
+        saver = tf.train.Saver([v for v in tf.trainable_variables() if v.name != 'global_step'], max_to_keep=3)
+        session.run(tf.global_variables_initializer())
 
         # restore the model
         last_step = -1
