@@ -21,7 +21,7 @@ num_class = 80
 slim = tf.contrib.slim
 
 class ModelFactory():
-    def __init__(self, datagen, net='VGG16', batch_size=32, lr=0.001, dropout_keep_prob=0.8, model_dir='checkpoints', input_size=299, fine_tune=False, pretrained_path=None):
+    def __init__(self, datagen, net='VGG16', batch_size=32, lr=0.0001, dropout_keep_prob=0.8, model_dir='checkpoints', input_size=299, fine_tune=False, pretrained_path=None):
 
         self.datagen = datagen
         self.batch_size = batch_size
@@ -73,26 +73,28 @@ class ModelFactory():
         global_step = tf.Variable(0, name='global_step', trainable=False)
 
         learning_rate = tf.train.exponential_decay(self.lr, global_step,
-                                                   10000, 0.95, staircase=True)
+                                                   100000, 0.95, staircase=True)
 
         last_layer = tf.contrib.framework.get_variables('InceptionV3/Logits/Conv2d_1c_1x1')
-        #last_second = tf.contrib.framework.get_variables('InceptionResnetV2/Conv2d_7b_1x1')
+        last_conv = tf.contrib.framework.get_variables('InceptionV3/Mixed_7c')
+        train_var_list = last_layer + last_conv
 
+        '''
         train_step = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).minimize(
             loss,
             global_step=global_step,
             var_list=last_layer
         )
-
         '''
+
         train_step = tf.train.MomentumOptimizer(
             learning_rate=learning_rate,
             momentum=0.9,
             name='Momentum').minimize(
                 loss,
-                global_step = global_step
+                global_step=global_step,
+                var_list=train_var_list
             )
-        '''
 
         '''
         train_step = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(
@@ -102,8 +104,8 @@ class ModelFactory():
         )
         '''
 
-        #saver = tf.train.Saver([v for v in tf.trainable_variables() if not ('Momentum' in v.name)], max_to_keep=3)
-        saver = tf.train.Saver(max_to_keep=3)
+        saver = tf.train.Saver([v for v in tf.trainable_variables() if not ('Momentum' in v.name)], max_to_keep=3)
+        #saver = tf.train.Saver(max_to_keep=3)
 
         # evaluate net
         if self.net_name == 'VGG16':
