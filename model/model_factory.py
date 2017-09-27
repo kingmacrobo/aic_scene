@@ -237,3 +237,68 @@ class ModelFactory():
 
                     print 'Get higher accuracy, {}. Save model at {}, Save accuracy at {}'\
                         .format(last_acc, model_path, self.acc_file)
+
+    def eval(self, session):
+
+        eval_x = tf.placeholder(tf.float32, [None, self.input_size, self.input_size, 3])
+        eval_scaled_x = tf.scalar_mul((1.0/255), eval_x)
+        eval_scaled_x = tf.subtract(eval_scaled_x, 0.5)
+        eval_scaled_x = tf.multiply(eval_scaled_x, 2.0)
+
+        with slim.arg_scope(arg_scope_dict[self.net_name]()):
+            eval_net, _ = self.net(eval_scaled_x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob, is_training=False, reuse=False)
+
+        eval_net = tf.nn.softmax(eval_net)
+        _, top_3 = tf.nn.top_k(eval_net, k=3)
+        top_1 = tf.argmax(eval_net, axis=1)
+
+        saver = tf.train.Saver([v for v in tf.trainable_variables() if not ('Momentum' in v.name)], max_to_keep=3)
+
+        # restore the model
+        last_step = -1
+        last_acc = 0
+        if os.path.exists(self.model_dir):
+            ckpt = tf.train.get_checkpoint_state(self.model_dir)
+            if ckpt and ckpt.model_checkpoint_path:
+                saver.restore(session, ckpt.model_checkpoint_path)
+                if os.path.exists(self.acc_file):
+                    acc_json = json.load(open(self.acc_file, 'r'))
+                    last_acc = acc_json['accuracy']
+                    last_step = acc_json['step']
+                print 'Model restored from {}, last accuracy: {}, last step: {}' \
+                    .format(ckpt.model_checkpoint_path, last_acc, last_step)
+            else:
+                print 'No checkpoint'
+                return
+        else:
+            print 'No model dir'
+            return
+
+        print 'Evaluate validate set ... '
+        ee_a = time.time()
+        correct = 0
+        top_1_correct = 0
+        N = self.datagen.get_validate_sample_count()
+        batches = N / self.batch_size
+        if N % self.batch_size != 0:
+            batches += 1
+        validate_samples = self.datagen.generate_validate_samples(self.batch_size)
+        for i in xrange(batches):
+            val_x, val_y = validate_samples.next()
+
+            val_top_3, val_top_1 = session.run([top_3, top_1], feed_dict={eval_x: val_x})
+
+            for j, row in enumerate(val_top_3):
+                if val_y[j] in row:
+                    correct += 1
+
+            for j, cla in enumerate(val_top_1):
+                if val_y[j] == val_top_1[j]:
+                    top_1_correct += 1
+
+        ee_b = time.time()
+        top_3_acc = correct * 1.0 / N
+        top_1_acc = top_1_correct * 1.0 / N
+
+        print 'validate top-3 acc: {:.5f}, top-1 acc: {},time: {:.2f} s' \
+            .format(top_3_acc, top_1_acc, ee_b - ee_a)
