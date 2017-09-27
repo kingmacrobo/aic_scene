@@ -43,8 +43,12 @@ class ModelFactory():
         # train net
         x = tf.placeholder(tf.float32, [self.batch_size, self.input_size, self.input_size, 3])
         y = tf.placeholder(tf.int32, [self.batch_size])
+        scaled_x = tf.scalar_mul((1.0/255), x)
+        scaled_x = tf.subtract(scaled_x, 0.5)
+        scaled_x = tf.multiply(scaled_x, 2.0)
+
         with slim.arg_scope(arg_scope_dict[self.net_name]()):
-            train_net, _ = self.net(x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob, reuse=None)
+            train_net, _ = self.net(scaled_x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob, reuse=None)
 
         # load vgg pre-trained parameters on ImageNet
         init_fn=None
@@ -67,9 +71,10 @@ class ModelFactory():
         learning_rate = tf.train.exponential_decay(self.lr, global_step,
                                                    50000, 0.95, staircase=True)
 
-        #last_layer = tf.contrib.framework.get_variables('InceptionResnetV2/Logits')
+        last_layer = tf.contrib.framework.get_variables('InceptionResnetV2/Logits')
         #last_second = tf.contrib.framework.get_variables('InceptionResnetV2/Conv2d_7b_1x1')
 
+        '''
         train_step = tf.train.MomentumOptimizer(
             learning_rate=learning_rate,
             momentum=0.9,
@@ -77,16 +82,15 @@ class ModelFactory():
                 loss,
                 global_step = global_step
             )
-
         '''
+
         train_step = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(
             loss,
-            global_step=global_step)
-            var_list=[last_layer[0], last_second[0]]
+            global_step=global_step
         )
-        '''
+        #var_list=last_layer
 
-        saver = tf.train.Saver([v for v in tf.trainable_variables() if not ('Momentum' in v.name)], max_to_keep=3)
+        saver = tf.train.Saver([v for v in tf.trainable_variables() if not ('Adam' in v.name)], max_to_keep=3)
         #saver = tf.train.Saver(max_to_keep=3)
 
         # evaluate net
@@ -94,8 +98,11 @@ class ModelFactory():
             tf.get_variable_scope().reuse_variables()
 
         eval_x = tf.placeholder(tf.float32, [None, self.input_size, self.input_size, 3])
+        eval_scaled_x = tf.scalar_mul((1.0/255), eval_x)
+        eval_scaled_x = tf.subtract(eval_scaled_x, 0.5)
+        eval_scaled_x = tf.multiply(eval_scaled_x, 2.0)
         with slim.arg_scope(arg_scope_dict[self.net_name]()):
-            eval_net, _ = self.net(eval_x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob, is_training=False, reuse=True)
+            eval_net, _ = self.net(eval_scaled_x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob, is_training=False, reuse=True)
 
         eval_net = tf.nn.softmax(eval_net)
         _, top_3 = tf.nn.top_k(eval_net, k=3)

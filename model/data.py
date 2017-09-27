@@ -46,7 +46,6 @@ class DataGenerator():
 
     def load_image_from_file(self, img_path):
         img = cv2.imread(img_path)
-        img = img / 255.0
         return img
 
     def generate_batch_train_samples(self, batch_size=32):
@@ -119,7 +118,7 @@ class DataGenerator():
     def image_aug(self, image):
         crop = rd.randint(0, 1)
         if crop == 1:
-            crop_size = rd.randint(300, 320)
+            crop_size = rd.randint(300, 350)
             image = cv2.resize(image, (crop_size, crop_size))
             image = self.random_crop(image, self.input_size, self.input_size)
         else:
