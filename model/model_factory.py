@@ -75,9 +75,11 @@ class ModelFactory():
         learning_rate = tf.train.exponential_decay(self.lr, global_step,
                                                    100000, 0.95, staircase=True)
 
+        '''
         last_layer = tf.contrib.framework.get_variables('InceptionV3/Logits/Conv2d_1c_1x1')
         last_conv = tf.contrib.framework.get_variables('InceptionV3/Mixed_7c')
         train_var_list = last_layer + last_conv
+        '''
 
         '''
         train_step = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).minimize(
@@ -87,14 +89,10 @@ class ModelFactory():
         )
         '''
 
-        train_step = tf.train.MomentumOptimizer(
+        optimizer = tf.train.MomentumOptimizer(
             learning_rate=learning_rate,
             momentum=0.9,
-            name='Momentum').minimize(
-                loss,
-                global_step=global_step,
-                var_list=train_var_list
-            )
+            name='Momentum')
 
         '''
         train_step = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(
@@ -104,8 +102,9 @@ class ModelFactory():
         )
         '''
 
-        saver = tf.train.Saver([v for v in tf.trainable_variables() if not ('Momentum' in v.name)], max_to_keep=3)
-        #saver = tf.train.Saver(max_to_keep=3)
+        train_step = slim.learning.create_train_op(loss, optimizer)
+
+        saver = tf.train.Saver([v for v in tf.model_variables() if not ('Momentum' in v.name)], max_to_keep=3)
 
         # evaluate net
         if self.net_name == 'VGG16':
@@ -193,7 +192,7 @@ class ModelFactory():
                 json.dump(j_dict, open(self.acc_file, 'w'), indent=4)
                 print 'Save model at {}'.format(model_path)
 
-            if step != 0 and step % 5000 == 0:
+            if step != 0 and step % 1000 == 0:
                 print 'Evaluate validate set ... '
                 ee_a = time.time()
                 correct = 0
@@ -239,39 +238,33 @@ class ModelFactory():
                         .format(last_acc, model_path, self.acc_file)
 
     def eval(self, session):
-
-
         eval_x = tf.placeholder(tf.float32, [None, self.input_size, self.input_size, 3])
         eval_scaled_x = tf.scalar_mul((1.0/255), eval_x)
         eval_scaled_x = tf.subtract(eval_scaled_x, 0.5)
         eval_scaled_x = tf.multiply(eval_scaled_x, 2.0)
 
-        with slim.arg_scope(arg_scope_dict[self.net_name]()):
+        with slim.arg_scope(arg_scope_dict[self.net_name](weight_decay=0.0)):
             eval_net, _ = self.net(eval_scaled_x, num_classes=num_class, dropout_keep_prob=1, is_training=False, reuse=None)
 
         eval_net = tf.nn.softmax(eval_net)
         _, top_3 = tf.nn.top_k(eval_net, k=3)
         top_1 = tf.argmax(eval_net, axis=1)
 
-        saver = tf.train.Saver([v for v in tf.trainable_variables() if v.name != 'global_step'], max_to_keep=3)
         session.run(tf.global_variables_initializer())
+        saver = tf.train.Saver()
 
-        # restore the model
+        # restore the best model
         last_step = -1
         last_acc = 0
         if os.path.exists(self.model_dir):
-            ckpt = tf.train.get_checkpoint_state(self.model_dir)
-            if ckpt and ckpt.model_checkpoint_path:
-                saver.restore(session, ckpt.model_checkpoint_path)
-                if os.path.exists(self.acc_file):
-                    acc_json = json.load(open(self.acc_file, 'r'))
-                    last_acc = acc_json['accuracy']
-                    last_step = acc_json['step']
-                print 'Model restored from {}, last accuracy: {}, last step: {}' \
-                    .format(ckpt.model_checkpoint_path, last_acc, last_step)
-            else:
-                print 'No checkpoint'
-                return
+            ckpt = self.model_dir + '/' + self.net_name + '_best'
+            saver.restore(session, ckpt)
+            if os.path.exists(self.acc_file):
+                acc_json = json.load(open(self.acc_file, 'r'))
+                last_acc = acc_json['accuracy']
+                last_step = acc_json['step']
+            print 'Model restored from {}, last accuracy: {}, last step: {}' \
+                .format(ckpt, last_acc, last_step)
         else:
             print 'No model dir'
             return
