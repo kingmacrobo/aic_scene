@@ -21,7 +21,7 @@ num_class = 80
 slim = tf.contrib.slim
 
 class ModelFactory():
-    def __init__(self, datagen, net='VGG16', batch_size=32, lr=0.0001, dropout_keep_prob=0.8, model_dir='checkpoints', input_size=299, fine_tune=False, pretrained_path=None):
+    def __init__(self, datagen, net='VGG16', batch_size=32, lr=0.001, dropout_keep_prob=0.8, model_dir='checkpoints', input_size=299, fine_tune=False, pretrained_path=None):
 
         self.datagen = datagen
         self.batch_size = batch_size
@@ -75,17 +75,12 @@ class ModelFactory():
         learning_rate = tf.train.exponential_decay(self.lr, global_step,
                                                    100000, 0.95, staircase=True)
 
-        '''
-        last_layer = tf.contrib.framework.get_variables('InceptionV3/Logits/Conv2d_1c_1x1')
-        last_conv = tf.contrib.framework.get_variables('InceptionV3/Mixed_7c')
-        train_var_list = last_layer + last_conv
-        '''
+        last_layer = tf.contrib.framework.get_variables('InceptionResnetV2/Logits')
 
         '''
         train_step = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).minimize(
             loss,
-            global_step=global_step,
-            var_list=last_layer
+            global_step=global_step
         )
         '''
 
@@ -98,11 +93,9 @@ class ModelFactory():
         train_step = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(
             loss,
             global_step=global_step)
-            var_list=[last_layer[0], last_second[0]]
-        )
         '''
 
-        train_step = slim.learning.create_train_op(loss, optimizer)
+        train_step = slim.learning.create_train_op(loss, optimizer, global_step=global_step, variables_to_train=last_layer)
 
         saver = tf.train.Saver([v for v in tf.model_variables() if not ('Momentum' in v.name)], max_to_keep=3)
 
@@ -192,7 +185,7 @@ class ModelFactory():
                 json.dump(j_dict, open(self.acc_file, 'w'), indent=4)
                 print 'Save model at {}'.format(model_path)
 
-            if step != 0 and step % 1000 == 0:
+            if step != 0 and step % 2000 == 0:
                 print 'Evaluate validate set ... '
                 ee_a = time.time()
                 correct = 0
@@ -219,7 +212,7 @@ class ModelFactory():
                 top_3_acc = correct * 1.0 / N
                 top_1_acc = top_1_correct * 1.0 / N
 
-                print 'validate top-3 acc: {:.5f}, top-1 acc: {},time: {:.2f} s' \
+                print '\nvalidate top-3 acc: {:.5f}, top-1 acc: {},time: {:.2f} s' \
                     .format(top_3_acc, top_1_acc, ee_b - ee_a)
 
                 self.acc_log.write('{} {}\n'.format(step, top_3_acc))
@@ -234,7 +227,7 @@ class ModelFactory():
                     with open(self.acc_file, 'w') as f:
                         json.dump(acc_json, f, indent=4)
 
-                    print 'Get higher accuracy, {}. Save model at {}, Save accuracy at {}'\
+                    print '***Get higher accuracy, {}. Save model at {}, Save accuracy at {}\n'\
                         .format(last_acc, model_path, self.acc_file)
 
     def eval(self, session):
