@@ -107,8 +107,7 @@ class ModelFactory():
         eval_scaled_x = tf.scalar_mul((1.0/255), eval_x)
         eval_scaled_x = tf.subtract(eval_scaled_x, 0.5)
         eval_scaled_x = tf.multiply(eval_scaled_x, 2.0)
-
-        with slim.arg_scope(arg_scope_dict[self.net_name]()):
+        with slim.arg_scope(arg_scope_dict[self.net_name](weight_decay=0.0)):
             eval_net, _ = self.net(eval_scaled_x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob, is_training=False, reuse=True)
 
         eval_net = tf.nn.softmax(eval_net)
