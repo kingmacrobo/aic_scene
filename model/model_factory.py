@@ -20,8 +20,10 @@ arg_scope_dict = {
 num_class = 80
 slim = tf.contrib.slim
 
+
 class ModelFactory():
-    def __init__(self, datagen, net='VGG16', batch_size=32, lr=0.00002, dropout_keep_prob=0.8, model_dir='checkpoints', input_size=299, fine_tune=False, pretrained_path=None):
+    def __init__(self, datagen, net='VGG16', batch_size=32, lr=0.00002, dropout_keep_prob=0.8, model_dir='checkpoints',
+                 input_size=299, fine_tune=False, pretrained_path=None):
 
         self.datagen = datagen
         self.batch_size = batch_size
@@ -38,8 +40,8 @@ class ModelFactory():
         self.net = net_dict[net]
         self.input_size = input_size
 
-        print 'Fine-tune model: {}, batch size: {}, learning reate: {}, dropout keep probability: {}\n'.format(self.fine_tune, self.batch_size, self.lr, self.dropout_keep_prob)
-
+        print 'Fine-tune model: {}, batch size: {}, learning reate: {}, dropout keep probability: {}\n'.format(
+            self.fine_tune, self.batch_size, self.lr, self.dropout_keep_prob)
 
     def train(self, session):
         # train net
@@ -50,19 +52,22 @@ class ModelFactory():
         scaled_x = tf.multiply(scaled_x, 2.0)
 
         with slim.arg_scope(arg_scope_dict[self.net_name]()):
-            train_net, _ = self.net(scaled_x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob, reuse=None)
+            train_net, _ = self.net(scaled_x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob,
+                                    reuse=None)
 
         # load vgg pre-trained parameters on ImageNet
-        init_fn=None
+        init_fn = None
         if self.fine_tune and not os.path.exists(self.model_dir):
             if self.pretrained_path and os.path.exists(self.pretrained_path):
                 print 'Load pretrained model from {}'.format(self.pretrained_path)
                 if self.net_name == 'VGG16':
                     variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=['vgg_16/fc8'])
                 elif self.net_name == 'INCEPTION_RESNET_V2':
-                    variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=['InceptionResnetV2/Logits', 'InceptionResnetV2/AuxLogits/Logits'])
+                    variables_to_restore = tf.contrib.framework.get_variables_to_restore(
+                        exclude=['InceptionResnetV2/Logits', 'InceptionResnetV2/AuxLogits/Logits'])
                 elif self.net_name == 'INCEPTION_V3':
-                    variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=['InceptionV3/Logits/Conv2d_1c_1x1', 'InceptionV3/AuxLogits/Conv2d_2b_1x1'])
+                    variables_to_restore = tf.contrib.framework.get_variables_to_restore(
+                        exclude=['InceptionV3/Logits/Conv2d_1c_1x1', 'InceptionV3/AuxLogits/Conv2d_2b_1x1'])
 
                 init_fn = tf.contrib.framework.assign_from_checkpoint_fn(self.pretrained_path, variables_to_restore)
                 print 'Load pretrained parameters done!'
@@ -95,10 +100,11 @@ class ModelFactory():
             momentum=0.9,
             name='Momentum')
 
-        #optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+        # optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
 
-        train_step = slim.learning.create_train_op(loss, optimizer, global_step=global_step, variables_to_train=train_layer)
-        #train_step = slim.learning.create_train_op(loss, optimizer, global_step=global_step)
+        train_step = slim.learning.create_train_op(loss, optimizer, global_step=global_step,
+                                                   variables_to_train=train_layer)
+        # train_step = slim.learning.create_train_op(loss, optimizer, global_step=global_step)
 
         saver = tf.train.Saver([v for v in tf.model_variables() if not ('Momentum' in v.name)], max_to_keep=3)
 
@@ -107,11 +113,12 @@ class ModelFactory():
             tf.get_variable_scope().reuse_variables()
 
         eval_x = tf.placeholder(tf.float32, [None, self.input_size, self.input_size, 3])
-        eval_scaled_x = tf.scalar_mul((1.0/255), eval_x)
+        eval_scaled_x = tf.scalar_mul((1.0 / 255), eval_x)
         eval_scaled_x = tf.subtract(eval_scaled_x, 0.5)
         eval_scaled_x = tf.multiply(eval_scaled_x, 2.0)
         with slim.arg_scope(arg_scope_dict[self.net_name](weight_decay=0.0)):
-            eval_net, _ = self.net(eval_scaled_x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob, is_training=False, reuse=True)
+            eval_net, _ = self.net(eval_scaled_x, num_classes=num_class, dropout_keep_prob=self.dropout_keep_prob,
+                                   is_training=False, reuse=True)
 
         eval_net = tf.nn.softmax(eval_net)
         _, top_3 = tf.nn.top_k(eval_net, k=3)
@@ -124,7 +131,7 @@ class ModelFactory():
             print 'Uninitialized variable count: {}'.format(len(uninit_names))
             vis = []
             for v in uninit_names:
-                #print 'Initialize {}'.format(v)
+                # print 'Initialize {}'.format(v)
                 vi = tf.contrib.framework.get_variables(v)
                 vis.append(vi[0])
             session.run(tf.variables_initializer(vis))
@@ -143,9 +150,8 @@ class ModelFactory():
                     acc_json = json.load(open(self.acc_file, 'r'))
                     last_acc = acc_json['accuracy']
                     last_step = acc_json['step']
-                print 'Model restored from {}, last accuracy: {}, last step: {}'\
+                print 'Model restored from {}, last accuracy: {}, last step: {}' \
                     .format(ckpt.model_checkpoint_path, last_acc, last_step)
-
 
         tf.get_default_graph().finalize()
 
@@ -167,8 +173,8 @@ class ModelFactory():
             count += 1
 
             if step % 100 == 0:
-                avg_loss = total_loss/count
-                print 'global step {}, loss {}, generate data time: {:.2f} s, step train time: {:.2f} s, lr: {}'\
+                avg_loss = total_loss / count
+                print 'global step {}, loss {}, generate data time: {:.2f} s, step train time: {:.2f} s, lr: {}' \
                     .format(step, avg_loss, gd_b - gd_a, tr_b - tr_a, c_lr)
                 self.loss_log.write('{} {}\n'.format(step, avg_loss))
                 total_loss = 0
@@ -229,17 +235,18 @@ class ModelFactory():
                     with open(self.acc_file, 'w') as f:
                         json.dump(acc_json, f, indent=4)
 
-                    print '***Get higher accuracy, {}. Save model at {}, Save accuracy at {}\n'\
+                    print '***Get higher accuracy, {}. Save model at {}, Save accuracy at {}\n' \
                         .format(last_acc, model_path, self.acc_file)
 
     def eval(self, session):
         eval_x = tf.placeholder(tf.float32, [None, self.input_size, self.input_size, 3])
-        eval_scaled_x = tf.scalar_mul((1.0/255), eval_x)
+        eval_scaled_x = tf.scalar_mul((1.0 / 255), eval_x)
         eval_scaled_x = tf.subtract(eval_scaled_x, 0.5)
         eval_scaled_x = tf.multiply(eval_scaled_x, 2.0)
 
         with slim.arg_scope(arg_scope_dict[self.net_name](weight_decay=0.0)):
-            eval_net, _ = self.net(eval_scaled_x, num_classes=num_class, dropout_keep_prob=1, is_training=False, reuse=None)
+            eval_net, _ = self.net(eval_scaled_x, num_classes=num_class, dropout_keep_prob=1, is_training=False,
+                                   reuse=None)
 
         eval_net = tf.nn.softmax(eval_net)
         _, top_3 = tf.nn.top_k(eval_net, k=3)
@@ -291,4 +298,88 @@ class ModelFactory():
         top_1_acc = top_1_correct * 1.0 / N
 
         print 'validate top-3 acc: {:.5f}, top-1 acc: {},time: {:.2f} s' \
+            .format(top_3_acc, top_1_acc, ee_b - ee_a)
+
+    def eval_multi_crop(self, session):
+        eval_x = tf.placeholder(tf.float32, [None, self.input_size, self.input_size, 3])
+        eval_scaled_x = tf.scalar_mul((1.0 / 255), eval_x)
+        eval_scaled_x = tf.subtract(eval_scaled_x, 0.5)
+        eval_scaled_x = tf.multiply(eval_scaled_x, 2.0)
+
+        with slim.arg_scope(arg_scope_dict[self.net_name](weight_decay=0.0)):
+            eval_net, _ = self.net(eval_scaled_x, num_classes=num_class, dropout_keep_prob=1, is_training=False,
+                                   reuse=None)
+
+        eval_net = tf.nn.softmax(eval_net)
+        _, top_10 = tf.nn.top_k(eval_net, k=10)
+
+        session.run(tf.global_variables_initializer())
+        saver = tf.train.Saver()
+
+        # restore the best model
+        last_step = -1
+        last_acc = 0
+        if os.path.exists(self.model_dir):
+            ckpt = self.model_dir + '/' + self.net_name + '_best'
+            saver.restore(session, ckpt)
+            if os.path.exists(self.acc_file):
+                acc_json = json.load(open(self.acc_file, 'r'))
+                last_acc = acc_json['accuracy']
+                last_step = acc_json['step']
+            print 'Model restored from {}, last accuracy: {}, last step: {}' \
+                .format(ckpt, last_acc, last_step)
+        else:
+            print 'No model dir'
+            return
+
+        N = self.datagen.get_validate_sample_count()
+        batches = N / self.batch_size
+        if N % self.batch_size != 0:
+            batches += 1
+
+        combined = np.zeros((N, 80))
+        val_Y = self.datagen.generate_validate_samples_Y()
+
+        ee_a = time.time()
+        print 'Evaluate validate set ... '
+        for resize in range(299, 351):
+            tt_3_c = 0
+            tt_1_c = 0
+            samples = self.datagen.generate_scaled_validate_samples_X(resize=resize, batch_size=self.batch_size)
+            for i in xrange(batches):
+                val_x = samples.next()
+                val_top_10 = session.run([top_10], feed_dict={eval_x: val_x})
+
+                for index, t10 in enumerate(val_top_10):
+                    for t in t10:
+                        combined[i*self.batch_size + index][t] += 1
+
+                for j, row in enumerate(val_top_10):
+                    y = val_Y[i*self.batch_size + j]
+                    if  y in row[0:3]:
+                        tt_3_c += 1
+                    if y == row[0]:
+                        tt_1_c += 1
+
+            tt_1_acc = tt_1_c * 1.0 / N
+            tt_3_acc = tt_3_c * 1.0 / N
+
+            print '[{}] validate top-3 acc: {:.5f}, top-1 acc: {}\n'.format(resize, tt_3_acc, tt_1_acc)
+
+
+        correct_top_3 = 0
+        correct_top_1 = 0
+        for index, y in enumerate(val_Y):
+            t80 = combined[index]
+            t3 = t80.argsort()[-3:][::-1]
+            if t3[0] == y:
+                correct_top_1 += 1
+            if y in t3:
+                correct_top_3 += 1
+
+        top_1_acc = correct_top_1 * 1.0 / N
+        top_3_acc = correct_top_3 * 1.0 / N
+
+        ee_b = time.time()
+        print 'validate top-3 acc: {:.5f}, top-1 acc: {},time: {:.2f} s'\
             .format(top_3_acc, top_1_acc, ee_b - ee_a)
