@@ -116,13 +116,9 @@ class DataGenerator():
             yield batch_x
 
     def image_aug(self, image):
-        crop = rd.randint(0, 1)
-        if crop == 1:
-            crop_size = rd.randint(300, 350)
-            image = cv2.resize(image, (crop_size, crop_size))
-            image = self.random_crop(image, self.input_size, self.input_size)
-        else:
-            image = cv2.resize(image, (self.input_size, self.input_size))
+        crop_size = rd.randint(300, 350)
+        image = cv2.resize(image, (crop_size, crop_size))
+        image = self.random_crop(image, self.input_size, self.input_size)
 
         # horizental flip
         flip = rd.randint(0, 1)

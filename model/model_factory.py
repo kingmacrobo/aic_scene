@@ -21,7 +21,7 @@ num_class = 80
 slim = tf.contrib.slim
 
 class ModelFactory():
-    def __init__(self, datagen, net='VGG16', batch_size=32, lr=0.001, dropout_keep_prob=0.8, model_dir='checkpoints', input_size=299, fine_tune=False, pretrained_path=None):
+    def __init__(self, datagen, net='VGG16', batch_size=32, lr=0.00002, dropout_keep_prob=0.8, model_dir='checkpoints', input_size=299, fine_tune=False, pretrained_path=None):
 
         self.datagen = datagen
         self.batch_size = batch_size
@@ -73,9 +73,15 @@ class ModelFactory():
         global_step = tf.Variable(0, name='global_step', trainable=False)
 
         learning_rate = tf.train.exponential_decay(self.lr, global_step,
-                                                   100000, 0.95, staircase=True)
+                                                   10000, 0.95, staircase=True)
 
-        last_layer = tf.contrib.framework.get_variables('InceptionResnetV2/Logits')
+        train_layer = tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Logits')
+        train_layer += tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Conv2d_7b_1x1')
+        train_layer += tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Block8')
+        train_layer += tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Mixed_7a')
+        train_layer += tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Block17')
+        train_layer += tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Mixed_6a')
+        print train_layer
 
         '''
         train_step = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).minimize(
@@ -89,13 +95,10 @@ class ModelFactory():
             momentum=0.9,
             name='Momentum')
 
-        '''
-        train_step = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(
-            loss,
-            global_step=global_step)
-        '''
+        #optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
 
-        train_step = slim.learning.create_train_op(loss, optimizer, global_step=global_step, variables_to_train=last_layer)
+        train_step = slim.learning.create_train_op(loss, optimizer, global_step=global_step, variables_to_train=train_layer)
+        #train_step = slim.learning.create_train_op(loss, optimizer, global_step=global_step)
 
         saver = tf.train.Saver([v for v in tf.model_variables() if not ('Momentum' in v.name)], max_to_keep=3)
 
@@ -165,8 +168,8 @@ class ModelFactory():
 
             if step % 100 == 0:
                 avg_loss = total_loss/count
-                print 'global step {}, epoch {}, step {}, loss {}, generate data time: {:.2f} s, step train time: {:.2f} s, lr: {}'\
-                    .format(step, step / (53879 / self.batch_size), step % (53879 / self.batch_size), avg_loss, gd_b - gd_a, tr_b - tr_a, c_lr)
+                print 'global step {}, loss {}, generate data time: {:.2f} s, step train time: {:.2f} s, lr: {}'\
+                    .format(step, avg_loss, gd_b - gd_a, tr_b - tr_a, c_lr)
                 self.loss_log.write('{} {}\n'.format(step, avg_loss))
                 total_loss = 0
                 count = 0
