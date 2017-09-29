@@ -21,7 +21,7 @@ num_class = 80
 slim = tf.contrib.slim
 
 class ModelFactory():
-    def __init__(self, datagen, net='VGG16', batch_size=32, lr=0.00002, dropout_keep_prob=0.8, model_dir='checkpoints', input_size=299, fine_tune=False, pretrained_path=None):
+    def __init__(self, datagen, net='VGG16', batch_size=32, lr=0.0001, dropout_keep_prob=0.8, model_dir='checkpoints', input_size=299, fine_tune=False, pretrained_path=None):
 
         self.datagen = datagen
         self.batch_size = batch_size
@@ -81,6 +81,8 @@ class ModelFactory():
         train_layer += tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Mixed_7a')
         train_layer += tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Block17')
         train_layer += tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Mixed_6a')
+        train_layer += tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Block35')
+        train_layer += tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Mixed_5b')
         print train_layer
 
         '''
