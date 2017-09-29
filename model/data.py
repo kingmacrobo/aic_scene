@@ -94,6 +94,35 @@ class DataGenerator():
 
             yield batch_x, batch_y
 
+    def generate_validate_samples_Y(self):
+        batch_y = []
+        for index in range(self.validate_count):
+            sample = self.validate_samples[index]
+            label = int(sample['label_id'])
+            batch_y.append(label)
+
+        batch_y = np.asarray(batch_y)
+        return batch_y
+
+    def generate_scaled_validate_samples_X(self, resize=299, batch_size=32):
+        index = 0
+        while index < self.validate_count:
+            batch_x = []
+            for i in xrange(batch_size):
+                sample = self.validate_samples[index]
+                image = self.load_image_from_file(os.path.join(self.validate_image_dir, sample['image_id']))
+                image = cv2.resize(image, (resize, resize))
+                image = self.crop_center(image, self.input_size, self.input_size)
+                batch_x.append(image)
+
+                index += 1
+                if index == self.validate_count:
+                    break
+
+            batch_x = np.asarray(batch_x)
+
+            yield batch_x
+
     def get_test_sample_count(self):
         return self.test_count
 
@@ -139,6 +168,16 @@ class DataGenerator():
         left = rd.randint(0, w_total - w)
         right = left + w
         top = rd.randint(0, h_total - h)
+        bot = top + h
+        return img[top:bot, left:right, :].copy()
+
+    def crop_center(self, img, w, h):
+        h_total = img.shape[0]
+        w_total = img.shape[1]
+
+        left = w_total / 2 - w / 2
+        right = left + w
+        top = h_total / 2 - h / 2
         bot = top + h
         return img[top:bot, left:right, :].copy()
 
