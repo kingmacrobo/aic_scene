@@ -16,10 +16,10 @@ flags.DEFINE_string('pretrained_model_path', '', 'the pre-trained model path')
 FLAGS = flags.FLAGS
 
 def main():
-    datagen = DataGenerator(FLAGS.train_json, FLAGS.train_image_dir, FLAGS.validate_json, FLAGS.validate_image_dir)
+    datagen = DataGenerator(FLAGS.train_json, FLAGS.train_image_dir, FLAGS.validate_json, FLAGS.validate_image_dir, test_list=FLAGS.test_list, test_image_dir=FLAGS.test_image_dir)
     model = ModelFactory(datagen, net='INCEPTION_RESNET_V2', model_dir=FLAGS.model_dir, fine_tune=True, pretrained_path=FLAGS.pretrained_model_path)
     with tf.Session() as session:
-        model.eval(session)
+        model.test_and_save(session)
 
 if __name__ == '__main__':
     main()

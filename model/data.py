@@ -6,7 +6,7 @@ import random as rd
 
 class DataGenerator():
 
-    def __init__(self, train_json_file, train_image_dir, validate_json_file, validate_image_dir, test_json_file=None, test_image_dir=None, input_size=299, data_augmentation=True):
+    def __init__(self, train_json_file, train_image_dir, validate_json_file, validate_image_dir, test_list=None, test_image_dir=None, input_size=299, data_augmentation=True):
 
         print 'Loading train and validate samples...'
         self.train_samples = self.load_samples(train_json_file)
@@ -19,8 +19,8 @@ class DataGenerator():
         self.validate_count = len(self.validate_samples)
         self.data_augmentation = data_augmentation
 
-        if test_json_file:
-            self.test_samples = self.load_image_samples(test_json_file)
+        if test_list:
+            self.test_samples = self.load_test_samples(test_list)
             self.test_image_dir = test_image_dir
             self.test_count = len(self.test_samples)
 
@@ -37,11 +37,12 @@ class DataGenerator():
             })
         return samples
 
-    def load_image_samples(self, json_file):
+    def load_test_samples(self, test_list):
         samples = []
-        j_f = json.load(open(json_file))
-        for sample in j_f:
-            samples.append(sample['image_id'])
+        paths = open(test_list).readlines()
+        for sample in paths:
+            image_id = sample.strip().split('/')[-1]
+            samples.append(image_id)
         return samples
 
     def load_image_from_file(self, img_path):
@@ -123,8 +124,8 @@ class DataGenerator():
 
             yield batch_x
 
-    def get_test_sample_count(self):
-        return self.test_count
+    def get_test_samples(self):
+        return self.test_count, self.test_samples
 
     def generate_test_samples(self, batch_size=32):
         index = 0
@@ -132,8 +133,27 @@ class DataGenerator():
             batch_x = []
             for i in xrange(batch_size):
                 sample = self.test_samples[index]
-                image = self.load_image_from_file(os.path.join(self.validate_image_dir, sample))
+                image = self.load_image_from_file(os.path.join(self.test_image_dir, sample))
 
+                batch_x.append(image)
+
+                index += 1
+                if index == self.test_count:
+                    break
+
+            batch_x = np.asarray(batch_x)
+
+            yield batch_x
+
+    def generate_scaled_test_samples_X(self, resize=299, batch_size=32):
+        index = 0
+        while index < self.test_count:
+            batch_x = []
+            for i in xrange(batch_size):
+                sample = self.test_samples[index]
+                image = self.load_image_from_file(os.path.join(self.test_image_dir, sample))
+                image = cv2.resize(image, (resize, resize))
+                image = self.crop_center(image, self.input_size, self.input_size)
                 batch_x.append(image)
 
                 index += 1

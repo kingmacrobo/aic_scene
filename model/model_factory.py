@@ -22,7 +22,7 @@ slim = tf.contrib.slim
 
 
 class ModelFactory():
-    def __init__(self, datagen, net='VGG16', batch_size=32, lr=0.0001, dropout_keep_prob=0.8, model_dir='checkpoints', input_size=299, fine_tune=False, pretrained_path=None):
+    def __init__(self, datagen, net='VGG16', batch_size=32, lr=0.00002, dropout_keep_prob=0.8, model_dir='checkpoints', input_size=299, fine_tune=False, pretrained_path=None):
 
         self.datagen = datagen
         self.batch_size = batch_size
@@ -79,35 +79,33 @@ class ModelFactory():
         learning_rate = tf.train.exponential_decay(self.lr, global_step,
                                                    10000, 0.95, staircase=True)
 
-        train_layer = tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Logits')
-        train_layer += tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Conv2d_7b_1x1')
-        train_layer += tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Block8')
-        train_layer += tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Mixed_7a')
-        train_layer += tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Block17')
-        train_layer += tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Mixed_6a')
-        train_layer += tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Block35')
-        train_layer += tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Mixed_5b')
-        print train_layer
+        if self.net_name == 'INCEPTION_RESNET_V2':
+            train_layer = tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Logits')
+            train_layer += tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Conv2d_7b_1x1')
+            train_layer += tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Block8')
+            train_layer += tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Mixed_7a')
+            train_layer += tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Block17')
+            train_layer += tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Mixed_6a')
+            train_layer += tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Block35')
+            train_layer += tf.contrib.framework.get_trainable_variables('InceptionResnetV2/Mixed_5b')
+
+        optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
 
         '''
-        train_step = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).minimize(
-            loss,
-            global_step=global_step
-        )
-        '''
-
         optimizer = tf.train.MomentumOptimizer(
             learning_rate=learning_rate,
             momentum=0.9,
             name='Momentum')
+        '''
 
-        # optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+        optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
 
         train_step = slim.learning.create_train_op(loss, optimizer, global_step=global_step,
                                                    variables_to_train=train_layer)
         # train_step = slim.learning.create_train_op(loss, optimizer, global_step=global_step)
 
-        saver = tf.train.Saver([v for v in tf.model_variables() if not ('Momentum' in v.name)], max_to_keep=3)
+        saver = tf.train.Saver([v for v in tf.model_variables() if not ('Adam' in v.name)], max_to_keep=3)
+        #saver = tf.train.Saver(max_to_keep=3)
 
         # evaluate net
         if self.net_name == 'VGG16':
@@ -343,7 +341,7 @@ class ModelFactory():
 
         ee_a = time.time()
         print 'Evaluate validate set ... '
-        for resize in range(299, 350):
+        for resize in range(299, 321):
             tt_3_c = 0
             tt_1_c = 0
             samples = self.datagen.generate_scaled_validate_samples_X(resize=resize, batch_size=self.batch_size)
@@ -383,3 +381,66 @@ class ModelFactory():
         ee_b = time.time()
         print 'validate top-3 acc: {:.5f}, top-1 acc: {},time: {:.2f} s'\
             .format(top_3_acc, top_1_acc, ee_b - ee_a)
+
+    def test_and_save(self, session):
+        eval_x = tf.placeholder(tf.float32, [None, self.input_size, self.input_size, 3])
+        eval_scaled_x = tf.scalar_mul((1.0 / 255), eval_x)
+        eval_scaled_x = tf.subtract(eval_scaled_x, 0.5)
+        eval_scaled_x = tf.multiply(eval_scaled_x, 2.0)
+
+        with slim.arg_scope(arg_scope_dict[self.net_name](weight_decay=0.0)):
+            eval_net, _ = self.net(eval_scaled_x, num_classes=num_class, dropout_keep_prob=1, is_training=False,
+                                   reuse=None)
+
+        eval_net = tf.nn.softmax(eval_net)
+
+        session.run(tf.global_variables_initializer())
+        saver = tf.train.Saver()
+
+        # restore the best model
+        last_step = -1
+        last_acc = 0
+        if os.path.exists(self.model_dir):
+            ckpt = self.model_dir + '/' + self.net_name + '_best'
+            saver.restore(session, ckpt)
+            if os.path.exists(self.acc_file):
+                acc_json = json.load(open(self.acc_file, 'r'))
+                last_acc = acc_json['accuracy']
+                last_step = acc_json['step']
+            print 'Model restored from {}, last accuracy: {}, last step: {}' \
+                .format(ckpt, last_acc, last_step)
+        else:
+            print 'No model dir'
+            return
+
+        N, sample_ids = self.datagen.get_test_samples()
+        batches = N / self.batch_size
+        if N % self.batch_size != 0:
+            batches += 1
+
+        combined = np.zeros((N, 80))
+
+        ee_a = time.time()
+        print 'Evaluate test set ... '
+        for resize in range(299, 351):
+            print '[{}]\n'.format(resize)
+            samples = self.datagen.generate_scaled_test_samples_X(resize=resize, batch_size=self.batch_size)
+            for i in xrange(batches):
+                test_x = samples.next()
+                batch_score = session.run(eval_net, feed_dict={eval_x: test_x})
+
+                for index, score in enumerate(batch_score):
+                    combined[i*self.batch_size + index] += score
+
+        results = []
+        for index in range(N):
+            t80 = combined[index]
+            t3 = t80.argsort()[-3:][::-1]
+            results.append({
+                    "image_id": sample_ids[index],
+                    "label_id": t3.tolist()
+                })
+
+        json.dump(results, open('results.json', 'w'), indent=4)
+        ee_b = time.time()
+        print 'Done! time used: {:.2f} s, save result at results.json'.format(ee_b - ee_a)

@@ -4,3 +4,4 @@ pre_trained/
 *.pyc
 *log
 checkpoints*
+model/result.json

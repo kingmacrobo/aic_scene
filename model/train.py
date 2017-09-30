@@ -7,7 +7,7 @@ flags = tf.app.flags
 flags.DEFINE_string('model_dir', 'checkpoints', 'the checkpoints directory')
 flags.DEFINE_string('train_json', '', 'the file contains train list')
 flags.DEFINE_string('validate_json', '', 'the file contains validate list')
-flags.DEFINE_string('test_json', '', 'the file contains test list')
+flags.DEFINE_string('test_list', '', 'the file contains test list')
 flags.DEFINE_string('train_image_dir', '', 'train image directory')
 flags.DEFINE_string('validate_image_dir', '', 'validate image directory')
 flags.DEFINE_string('test_image_dir', '', 'test image directory')
